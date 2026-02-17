@@ -1,0 +1,15 @@
+{
+  "editor.formatOnSave": true,
+  "notebook.defaultFormatter": "golang.go",
+  "notebook.formatOnSave.enabled": true,
+  "[go]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "golang.go",
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+},
+"cSpell.words": [
+    "godotenv"
+]
+}
