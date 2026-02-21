@@ -3,7 +3,10 @@ package main
 import (
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/google/uuid"
@@ -41,13 +44,6 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	}
 
 	defer file.Close()
-	mediaType := header.Header.Get("Content-Type")
-
-	data, err := io.ReadAll(file)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't read the thumbnail file", err)
-		return
-	}
 
 	videoData, err := cfg.db.GetVideo(videoID)
 	if err != nil {
@@ -59,12 +55,33 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusUnauthorized, "You can't upload a thumbnail for this video", nil)
 		return
 	}
-
-	videoThumbnails[videoID] = thumbnail{
-		data:      data,
-		mediaType: mediaType,
+	contentType := header.Header.Get("Content-Type")
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't parse media type", err)
+		return
 	}
-	thumbnailURL := fmt.Sprintf("http://localhost:%s/api/thumbnails/%s", cfg.port, videoID)
+
+	exts, err := mime.ExtensionsByType(mediaType)
+	if err != nil || len(exts) == 0 {
+		respondWithError(w, http.StatusInternalServerError, "No extension found", err)
+		return
+	}
+	fileName := fmt.Sprintf("%s%s", videoID.String(), exts[0])
+	filePath := filepath.Join(cfg.assetsRoot, fileName)
+	newImageFile, err := os.Create(filePath)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create new image file", err)
+		return
+	}
+	defer newImageFile.Close()
+
+	if _, err := io.Copy(newImageFile, file); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't copy file", err)
+		return
+	}
+
+	thumbnailURL := fmt.Sprintf("http://localhost:%s/assets/%s", cfg.port, fileName)
 	videoData.ThumbnailURL = &thumbnailURL
 
 	if err := cfg.db.UpdateVideo(videoData); err != nil {

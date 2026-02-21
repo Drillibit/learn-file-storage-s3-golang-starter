@@ -15,16 +15,16 @@ func (cfg *apiConfig) handlerThumbnailGet(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	tn, ok := videoThumbnails[videoID]
-	if !ok {
+	tn, err := cfg.db.GetVideo(videoID)
+	if err != nil {
 		respondWithError(w, http.StatusNotFound, "Thumbnail not found", nil)
 		return
 	}
 
-	w.Header().Set("Content-Type", tn.mediaType)
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(tn.data)))
+	w.Header().Set("Content-Type", *tn.VideoURL)
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(*tn.VideoURL)))
 
-	_, err = w.Write(tn.data)
+	_, err = w.Write([]byte(*tn.VideoURL))
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error writing response", err)
 		return
