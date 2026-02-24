@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"mime"
@@ -67,7 +69,12 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusInternalServerError, "No extension found", err)
 		return
 	}
-	fileName := fmt.Sprintf("%s%s", videoID.String(), exts[0])
+	fileID, err := generateKey()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't generate file ID", err)
+		return
+	}
+	fileName := fmt.Sprintf("%s%s", fileID, exts[0])
 	filePath := filepath.Join(cfg.assetsRoot, fileName)
 	newImageFile, err := os.Create(filePath)
 	if err != nil {
@@ -90,4 +97,14 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	}
 
 	respondWithJSON(w, http.StatusOK, videoData)
+}
+
+func generateKey() (string, error) {
+	key := make([]byte, 32)
+	_, err := rand.Read(key)
+
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(key), nil
 }
