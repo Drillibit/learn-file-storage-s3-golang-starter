@@ -13,6 +13,12 @@ import (
 	"github.com/google/uuid"
 )
 
+var videoFolderByAspectRatio = map[string]string{
+	"16:9":   "landscape",
+	"9:16":   "portrait",
+	"custom": "other",
+}
+
 const videoMimeType = "video/mp4"
 
 func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request) {
@@ -89,13 +95,24 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	defer os.Remove(tmpFile.Name())
 
 	tmpFile.Seek(0, io.SeekStart)
+	aspectRatio, err := getVideoAspectRatio(tmpFile.Name())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get video aspect ratio", err)
+		return
+	}
+
+	folder, ok := videoFolderByAspectRatio[aspectRatio]
+	if !ok {
+		folder = "other"
+	}
+
 	videoKeyID, err := generateKey()
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't generate file ID", err)
 		return
 	}
 
-	videoKey := fmt.Sprintf("%s%s", videoKeyID, videoExt)
+	videoKey := fmt.Sprintf("%s/%s%s", folder, videoKeyID, videoExt)
 
 	if _, err := cfg.s3Client.PutObject(context.Background(), &s3.PutObjectInput{
 		Bucket:      &cfg.s3Bucket,
